@@ -1,22 +1,34 @@
 const nodeMailer = require("nodemailer");
+const fs = require("fs");
+const path = require("path");
 require("dotenv").config();
 
-const sendMail = async ({ to, subject, text, html }) => {
+// Load OTP template once
+const otpTemplatePath = path.join(__dirname, "../email-templates/otp.html");
+const OTP_TEMPLATE = fs.readFileSync(otpTemplatePath, "utf8");
+
+function renderOtpTemplate(otp) {
+  return OTP_TEMPLATE
+    .replace(/{{OTP}}/g, otp)
+    .replace(/{{YEAR}}/g, new Date().getFullYear());
+}
+
+const sendMail = async ({ to, subject, html, text }) => {
   try {
-    let transporter = nodeMailer.createTransport({
+    const transporter = nodeMailer.createTransport({
       service: "gmail",
       auth: {
-        user: process.env.EMAIL_USER,   // Gmail address
-        pass: process.env.EMAIL_PASS,   // Gmail App Password
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
       },
     });
 
-    let info = await transporter.sendMail({
+    const info = await transporter.sendMail({
       from: `"Slynk" <${process.env.EMAIL_USER}>`,
       to,
       subject,
       html: html || `<p>${text}</p>`,
-      text: text,
+      text,
     });
 
     console.log("✅ Mail sent:", info.messageId);
@@ -27,4 +39,4 @@ const sendMail = async ({ to, subject, text, html }) => {
   }
 };
 
-module.exports = { sendMail };
+module.exports = { sendMail, renderOtpTemplate };

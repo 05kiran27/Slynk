@@ -1,20 +1,24 @@
-// src/models/Connection.js
+// models/Connection.js
 const mongoose = require('mongoose');
 
 const ConnectionSchema = new mongoose.Schema({
-  requester: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true }, // who sent the request
-  recipient: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true }, // who receives it
-  status: { type: String, enum: ['pending','accepted','rejected','cancelled','blocked'], default: 'pending' },
-  message: { type: String }, // optional personalized message
-  actionBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // who last acted (accepted/rejected)
-  // timestamps: createdAt = request time, updatedAt = last action time
+  requester: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  recipient: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  status: { type: String, enum: ['pending','accepted','rejected','cancelled','blocked'], default: 'pending', index: true },
+  message: { type: String },
+  actionBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  pairKey: { type: String, index: true, unique: true } // canonical pair key to prevent reversed duplicates
 }, { timestamps: true });
 
-// prevent duplicate requests (unique pair regardless of order?)  
-// For LinkedIn behavior we want one Connection between two users, direction matters for pending.
-ConnectionSchema.index({ requester: 1, recipient: 1 }, { unique: true });
+// create canonical pairKey: min(id)+ '_' + max(id)
+ConnectionSchema.pre('validate', function(next) {
+  if (this.requester && this.recipient) {
+    const a = this.requester.toString();
+    const b = this.recipient.toString();
+    this.pairKey = a < b ? `${a}_${b}` : `${b}_${a}`;
+  }
+  next();
+});
 
-// If you need to prevent reversed duplicates (A->B and B->A), you must check in application logic or use a canonical pair key:
-// Example: a computed 'pairKey' where pairKey = min(id1,id2)+'_'+max(id1,id2) and unique index on pairKey to enforce single connection record per pair.
-
+// unique index on pairKey prevents both A->B and B->A duplicates
 module.exports = mongoose.model('Connection', ConnectionSchema);

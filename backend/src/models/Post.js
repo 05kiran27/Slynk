@@ -1,90 +1,34 @@
+// models/Post.js
 const mongoose = require('mongoose');
 
+const MediaSchema = new mongoose.Schema({
+  url: String,
+  type: { type: String } // image, video, document
+}, { _id: false });
+
 const PostSchema = new mongoose.Schema({
-  author: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
-  },
+  author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  type: { type: String, enum: ['normal', 'project'], default: 'normal' },
+  content: { type: String, trim: true },
+  media: [MediaSchema],
 
-  // type: normal or project
-  type: {
-    type: String,
-    enum: ['normal', 'project'],
-    default: 'normal',
-  },
+  // Project-specific metadata (kept small; full application details in Application)
+  projectTitle: { type: String, trim: true },
+  projectDescription: { type: String, trim: true },
+  skillsRequired: [{ type: String, trim: true }],
+  applicationDeadline: { type: Date },
 
-  // Common fields for both normal and project posts
-  content: {
-    type: String,
-    trim: true,
-  },
+  // denormalized counters (atomic $inc on create/remove)
+  applicantsCount: { type: Number, default: 0, index: true },
+  likesCount: { type: Number, default: 0, index: true },
+  commentsCount: { type: Number, default: 0 },
 
-  media: [
-    {
-      url: String, // Image, video, or file URL
-      type: String, // e.g., 'image', 'video', 'document'
-    },
-  ],
+  visibility: { type: String, enum: ['public','private','restricted'], default: 'public' }
+}, { timestamps: true });
 
-  // ====== Project specific fields ======
-  projectTitle: {
-    type: String,
-    trim: true,
-  },
-  projectDescription: {
-    type: String,
-    trim: true,
-  },
-  skillsRequired: [
-    {
-      type: String,
-      trim: true,
-    },
-  ],
-  applicationDeadline: {
-    type: Date,
-  },
-  applicants: [
-    {
-      developer: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-      },
-      coverLetter: {
-        type: String,
-      },
-      appliedAt: {
-        type: Date,
-        default: Date.now,
-      },
-      status: {
-        type: String,
-        enum: ['pending', 'accepted', 'rejected'],
-        default: 'pending',
-      },
-    },
-  ],
-
-  // Likes and Comments (references)
-  likes: [
-    {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-    },
-  ],
-
-  comments: [
-    {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Comment',
-    },
-  ],
-
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-});
+// indexes for feed queries
+PostSchema.index({ author: 1, createdAt: -1 });
+PostSchema.index({ visibility: 1, createdAt: -1 });
+PostSchema.index({ type: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Post', PostSchema);
